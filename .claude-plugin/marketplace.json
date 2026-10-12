@@ -1,0 +1,14 @@
+{
+  "name": "roblox-studio-local",
+  "owner": {
+    "name": "TheNurd"
+  },
+  "plugins": [
+    {
+      "name": "roblox-studio",
+      "source": "./",
+      "description": "Roblox Studio connection, Luau skill, playtest/review commands and a safety guard"
+    }
+  ],
+  "description": "Roblox Studio mod for Claude Code"
+}
