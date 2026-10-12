@@ -339,3 +339,13 @@ test('/roblox-setup skips work when Studio is already connected', async ($, on) 
   const r: any = await ($ as any).command.run({ command: 'roblox-setup', args: '' })
   expect(String(r.text)).toContain('Nothing to set up')
 })
+
+test('/roblox status explains an auto mode refusal', async ($, on) => {
+  world(on)
+  on('mcp.call', async () => ({ deny: 'The server-side auto mode classifier gave no verdict for mcp__Roblox_Studio__list_roblox_studios' }) as any)
+  await enable($)
+  const st: any = await ($ as any).command.run({ command: 'roblox', args: 'status' })
+  expect(String(st.text)).toContain('permissions.allow')
+  const setup: any = await ($ as any).command.run({ command: 'roblox-setup', args: '' })
+  expect(String(setup.text)).toContain('permissions.allow')
+})

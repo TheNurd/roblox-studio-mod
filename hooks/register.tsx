@@ -118,13 +118,23 @@ async function ensureStudio($: any) {
   } catch {}
 }
 
-// Checks the Studio connection without involving Claude (no tokens)
-async function checkStudio($: any): Promise<{ ok: boolean; text: string }> {
+// Checks the Studio connection without involving Claude (no tokens).
+// `blocked` means Studio is reachable but the permission mode refused the mod's own call.
+async function checkStudio($: any): Promise<{ ok: boolean; text: string; blocked?: boolean }> {
   let res: any
   try {
     res = await $.mcp.call(server, 'list_roblox_studios', {})
   } catch (err: any) {
     const msg = String(err?.message || err)
+    // Auto mode has no model turn to judge a call made from a slash command, so it refuses it
+    if (/auto mode classifier|gave no verdict/i.test(msg)) {
+      return {
+        ok: false,
+        blocked: true,
+        text: 'Auto permission mode refused the mod\'s own call to Studio. Add the ' + server + ' tools to permissions.allow in ' +
+          '~/.claude/settings.json (see "Auto mode" in the README), or switch this chat out of auto mode, then run /roblox status.',
+      }
+    }
     const missing = /not (found|configured|connected)|unknown server|no such server|no server/i.test(msg)
     return {
       ok: false,
@@ -684,7 +694,7 @@ export const register: Register = (on) => {
       const st = await checkStudio($)
       $.ui.toast((await isOn($) ? 'Roblox mod on · ' : 'Roblox mod off · ') + st.text)
       if (await isOn($)) $.ui.status(st.ok ? 'Studio · connected' : 'Studio · not connected')
-      return {}
+      return { text: st.text }
     }
     const off = /^(off|stop|disable)$/i.test(arg)
     await update($, active, () => !off)
@@ -728,6 +738,7 @@ export const register: Register = (on) => {
   on('command.run', { command: 'roblox-setup' }, async ($) => {
     const already = await checkStudio($)
     if (already.ok) return { text: already.text + '. Nothing to set up.' }
+    if (already.blocked) return { text: already.text }
     const quick = 'Easiest fix: in Roblox Studio open Assistant → … → Manage MCP Servers, turn on "Enable Studio as MCP server", ' +
       'then under Quick connect turn on Claude (Desktop or Code). Restart the Claude app, then run /roblox status.'
     const localAppData = await $.env.get('LOCALAPPDATA')

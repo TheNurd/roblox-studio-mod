@@ -34,6 +34,27 @@ Needs Claude Code 2.1.287+ (terminal) or 2.1.286+ (Desktop app Code tab). Check 
 3. Run `/roblox`, then `/roblox-setup`, then in Studio: Assistant → … → Manage MCP Servers → turn on **Enable Studio as MCP server**.
 4. Restart Claude Code. A green dot in that Studio panel means it's connected.
 
+### Auto mode
+
+In auto permission mode Claude Code refuses the mod's own calls to Studio (`/roblox status` says so), because a slash command has no model turn for the classifier to judge. Allow the tools the mod uses in `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__Roblox_Studio__list_roblox_studios",
+      "mcp__Roblox_Studio__get_studio_state",
+      "mcp__Roblox_Studio__get_console_output",
+      "mcp__Roblox_Studio__script_read",
+      "mcp__Roblox_Studio__start_stop_play",
+      "mcp__Roblox_Studio__execute_luau"
+    ]
+  }
+}
+```
+
+The first four are read-only and cover `/roblox status`, the output pane and backups. `start_stop_play` and `execute_luau` are for auto-playtest, `/roblox-ship` and `/roblox-restore`; with them allowed, Claude's own Luau runs in your place skip the classifier too, so leave them out if you want that review.
+
 Notes: the pane, auto-playtest and backups need Studio connected (server name `Roblox_Studio`). The mod also learns from Claude's own Studio calls, so it gets more reliable after Claude's first one. Pane and band drawing work in the terminal and the Desktop Code tab, not the VS Code panel.
 
 Inspect before installing: `claude plugin validate ~/claude-mods/roblox-studio`

@@ -1,6 +1,6 @@
 {
   "name": "roblox-studio",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Connects Claude Code to Roblox Studio: Luau skill, live output pane, auto-playtest, script backups, and a safety guard",
   "types": "./types/index.d.ts",
   "author": {
