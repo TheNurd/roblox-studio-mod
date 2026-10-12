@@ -331,3 +331,11 @@ test('/roblox checks the Studio connection', async ($, on) => {
   await ($ as any).command.run({ command: 'roblox', args: 'status' })
   expect(logs.join('\n')).toContain('not connected')
 })
+
+test('/roblox-setup skips work when Studio is already connected', async ($, on) => {
+  world(on)
+  on('mcp.call', async (_$, e: any) => text(e.tool === 'list_roblox_studios' ? JSON.stringify([{ name: 'Obby', studio_id: 's' }]) : 'ok'))
+  await enable($)
+  const r: any = await ($ as any).command.run({ command: 'roblox-setup', args: '' })
+  expect(String(r.text)).toContain('Nothing to set up')
+})

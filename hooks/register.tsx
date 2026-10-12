@@ -726,6 +726,10 @@ export const register: Register = (on) => {
 
   // ----- setup -----
   on('command.run', { command: 'roblox-setup' }, async ($) => {
+    const already = await checkStudio($)
+    if (already.ok) return { text: already.text + '. Nothing to set up.' }
+    const quick = 'Easiest fix: in Roblox Studio open Assistant → … → Manage MCP Servers, turn on "Enable Studio as MCP server", ' +
+      'then under Quick connect turn on Claude (Desktop or Code). Restart the Claude app, then run /roblox status.'
     const localAppData = await $.env.get('LOCALAPPDATA')
     const isWindows = Boolean(localAppData)
     let serverCmd: string[]
@@ -734,17 +738,21 @@ export const register: Register = (on) => {
     } else if (!isWindows && (await $.fs.exists(MAC_BIN))) {
       serverCmd = [MAC_BIN]
     } else {
-      return { text: 'Roblox Studio MCP not found. Update Roblox Studio, open it once, then run /roblox-setup again.' }
+      return { text: 'Roblox Studio MCP not found. Update Roblox Studio and open it once.\n' + quick }
     }
     const claude = (args: string[]) => isWindows ? ['cmd.exe', '/c', 'claude', ...args] : ['claude', ...args]
     try {
       const existing = await $.process.run(claude(['mcp', 'get', DEFAULT_SERVER]))
       if (existing.exitCode !== 0) {
         const added = await $.process.run(claude(['mcp', 'add', '--scope', 'user', DEFAULT_SERVER, '--', ...serverCmd]))
-        if (added.exitCode !== 0) return { text: 'Could not add the server:\n' + (added.stderr || added.stdout) }
+        if (added.exitCode !== 0) {
+          const out = added.stderr || added.stdout
+          if (/not recognized|not found|No such file/i.test(out)) return { text: 'The claude terminal command is not installed (normal with the Desktop app).\n' + quick }
+          return { text: 'Could not add the server:\n' + out + '\n' + quick }
+        }
       }
     } catch (err: any) {
-      return { text: 'Could not run the claude CLI (' + (err.message || err) + '). Run this in your shell instead:\nclaude mcp add --scope user ' + DEFAULT_SERVER + ' -- ' + serverCmd.join(' ') }
+      return { text: 'The claude terminal command is not available (normal with the Desktop app).\n' + quick }
     }
     return {
       text: [
