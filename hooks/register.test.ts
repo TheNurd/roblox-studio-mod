@@ -340,6 +340,20 @@ test('/roblox-setup skips work when Studio is already connected', async ($, on) 
   expect(String(r.text)).toContain('Nothing to set up')
 })
 
+test('/roblox-learn sends its prompt after the command has returned', async ($, on) => {
+  world(on)
+  const clock = mock.clock(on)
+  const prompts: string[] = []
+  on('mcp.call', async (_$, e: any) => text(e.tool === 'list_roblox_studios' ? JSON.stringify([{ name: 'Obby', studio_id: 's' }]) : 'ok'))
+  on('prompt.submit', async (_$, e: any) => { prompts.push(e.text); return { drop: 'captured' } as any })
+  await enable($)
+  await ($ as any).command.run({ command: 'roblox-learn', args: 'TweenService' })
+  expect(prompts.length).toBe(0)
+  await clock.advance(1_000)
+  expect(prompts.length).toBe(1)
+  expect(prompts[0]).toContain('TweenService')
+})
+
 test('/roblox status explains an auto mode refusal', async ($, on) => {
   world(on)
   on('mcp.call', async () => ({ deny: 'The server-side auto mode classifier gave no verdict for mcp__Roblox_Studio__list_roblox_studios' }) as any)

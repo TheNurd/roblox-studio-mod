@@ -66,9 +66,21 @@ function classify(text: string): OutLine['level'] {
   return 'info'
 }
 
-function submit($: any, text: string) {
+// Sends a prompt to Claude as a turn of its own. A command.run hook holds the turn the prompt
+// would wait on, so the host refuses a submit made inside one: `later` sends it from a timer
+// once the hook has returned, and a refusal of that kind is retried the same way.
+function submit($: any, text: string, later = false, tries = 0) {
+  if (later) { $.clock.after(100 + tries * 250, () => submit($, text, false, tries)); return }
   ourSubmit = true
-  $.prompt.submit({ text, asUser: true }).catch(() => { ourSubmit = false })
+  $.prompt.submit({ text, asUser: true }).then(
+    (r: any) => { if (r?.drop) ourSubmit = false },
+    (err: any) => {
+      ourSubmit = false
+      const msg = String(err?.message || err)
+      if (tries < 3 && /hook is holding|later event/i.test(msg)) { submit($, text, true, tries + 1); return }
+      $.ui.toast('Could not send the prompt to Claude: ' + msg.slice(0, 160))
+    },
+  )
 }
 
 // Calls a Studio tool, trying argument shapes until one is accepted, then remembers it.
@@ -779,7 +791,7 @@ export const register: Register = (on) => {
     submit($, 'Playtest my open Roblox Studio place. Use the roblox-dev skill. ' +
       'Start play mode, ' + (e.args ? 'check this: ' + e.args + '. ' : 'exercise the main gameplay loop. ') +
       'Read the console output, stop play mode, then list every error and warning with the script and line, ' +
-      'the likely cause, and a proposed fix. Do not edit anything until I approve.')
+      'the likely cause, and a proposed fix. Do not edit anything until I approve.', true)
     return {}
   }).catch(($, e, next) => ({ text: 'roblox-studio: ' + next.error?.message }))
 
@@ -787,7 +799,7 @@ export const register: Register = (on) => {
     submit($, 'Review the scripts in my open Roblox Studio place' + (e.args ? ', focusing on ' + e.args : '') + '. Use the roblox-dev skill. ' +
       'Look for: bugs, client-trusted RemoteEvent/RemoteFunction handlers (exploits), deprecated APIs (wait, spawn, delay), ' +
       'memory leaks from unconnected events, unsafe DataStore code, and performance problems. ' +
-      'Report findings by severity with script paths. Do not edit anything until I approve.')
+      'Report findings by severity with script paths. Do not edit anything until I approve.', true)
     return {}
   }).catch(($, e, next) => ({ text: 'roblox-studio: ' + next.error?.message }))
 
@@ -897,7 +909,7 @@ export const register: Register = (on) => {
     if (/^fix$/i.test(String(e.args || '').trim())) {
       const list = findings.filter(f => f.level !== 'low').concat(findings.filter(f => f.level === 'low').slice(0, 5))
       submit($, 'Fix these pre-publish issues in my Roblox place (roblox-dev skill). High first; keep changes minimal; ' +
-        'for anything that might be intentional, ask me instead of changing it:\n' + list.map(f => `[${f.level}] ${f.text}`).join('\n').slice(0, 2500))
+        'for anything that might be intentional, ask me instead of changing it:\n' + list.map(f => `[${f.level}] ${f.text}`).join('\n').slice(0, 2500), true)
     }
     return {}
   }).catch(($, e, next) => { $.ui.status(undefined); $.ui.toast('Ship check failed: ' + next.error?.message); return {} })
@@ -958,7 +970,7 @@ export const register: Register = (on) => {
     if (!(await $.fs.exists(file))) {
       submit($, 'Create ' + DESIGN_FILE + ' in the project root by reading my open Roblox Studio place (scripts, configs, ' +
         'leaderstats, shop and enemy data). Use headings: Game, Economy, Player, Items, Enemies, Rules. ' +
-        'One line per fact, real numbers from the code, under ' + DESIGN_WORDS + ' words. Use this as the shape:\n\n' + DESIGN_TEMPLATE)
+        'One line per fact, real numbers from the code, under ' + DESIGN_WORDS + ' words. Use this as the shape:\n\n' + DESIGN_TEMPLATE, true)
       return {}
     }
     const text = String(await $.fs.read(file))
@@ -1006,7 +1018,7 @@ export const register: Register = (on) => {
     const topic = String(e.args || '').trim()
     if (!topic) { $.ui.toast('Usage: /roblox-learn <topic>, e.g. /roblox-learn TweenService'); return {} }
     submit($, `Research "${topic}" for Roblox development using ${SELF}${API_TOOL} (look up the classes and members it involves; ` +
-      `don't guess). Then save or update one concise skill with ${SELF}${SKILL_TOOL}. Reply with one line naming the skill.`)
+      `don't guess). Then save or update one concise skill with ${SELF}${SKILL_TOOL}. Reply with one line naming the skill.`, true)
     return {}
   }).catch(($, e, next) => { $.ui.toast('roblox-learn failed: ' + next.error?.message); return {} })
 
